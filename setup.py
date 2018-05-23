@@ -34,7 +34,7 @@ extras_require = {
     'docs': ['sphinx'],
 }
 extras_require['complete'] = sorted(set(sum(extras_require.values(), [])))
-g
+
 setup(
     name='fitter',
     version=version,
