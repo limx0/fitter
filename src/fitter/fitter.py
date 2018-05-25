@@ -25,10 +25,9 @@ import sys
 import threading
 from datetime import datetime
 
-import scipy.stats
 import numpy as np
-import pylab
 import pandas as pd
+import scipy.stats
 
 
 class Fitter(object):
@@ -88,7 +87,7 @@ class Fitter(object):
     """
 
     def __init__(self, data, xmin=None, xmax=None, bins=100,
-            distributions=None, verbose=True, timeout=30):
+                 distributions=None, verbose=True, timeout=30):
         """.. rubric:: Constructor
 
         :param list data: a numpy array or a list
@@ -141,14 +140,15 @@ class Fitter(object):
 
     def _update_data_pdf(self):
         # histogram retuns X with N+1 values. So, we rearrange the X output into only N
-        self.y, self.x = np.histogram(self._data, bins=self.bins, normed=True) # not to show
-        self.x = [(this+self.x[i+1])/2. for i,this in enumerate(self.x[0:-1])]
+        self.y, self.x = np.histogram(self._data, bins=self.bins, normed=True)  # not to show
+        self.x = [(this + self.x[i + 1]) / 2. for i, this in enumerate(self.x[0:-1])]
 
     def _trim_data(self):
         self._data = self._alldata[np.logical_and(self._alldata >= self._xmin, self._alldata <= self._xmax)]
 
     def _get_xmin(self):
         return self._xmin
+
     def _set_xmin(self, value):
         if value == None:
             value = self._alldata.min()
@@ -157,10 +157,12 @@ class Fitter(object):
         self._xmin = value
         self._trim_data()
         self._update_data_pdf()
+
     xmin = property(_get_xmin, _set_xmin, doc="consider only data above xmin. reset if None")
 
     def _get_xmax(self):
         return self._xmax
+
     def _set_xmax(self, value):
         if value == None:
             value = self._alldata.max()
@@ -169,17 +171,19 @@ class Fitter(object):
         self._xmax = value
         self._trim_data()
         self._update_data_pdf()
+
     xmax = property(_get_xmax, _set_xmax, doc="consider only data below xmax. reset if None ")
 
     def load_all_distributions(self):
         """Replace the :attr:`distributions` attribute with all scipy distributions"""
         distributions = []
         for this in dir(scipy.stats):
-            if "fit" in eval("dir(scipy.stats." + this +")"):
+            if "fit" in eval("dir(scipy.stats." + this + ")"):
                 distributions.append(this)
         self.distributions = distributions[:]
 
     def hist(self):
+        import pylab
         """Draw normed histogram of the data using :attr:`bins`
 
         .. plot::
@@ -223,12 +227,12 @@ class Fitter(object):
                 param = self._timed_run(dist.fit, distribution, args=self._data)
 
                 # with signal, does not work. maybe because another expection is caught
-                pdf_fitted = dist.pdf(self.x, *param) # hoping the order returned by fit is the same as in pdf
+                pdf_fitted = dist.pdf(self.x, *param)  # hoping the order returned by fit is the same as in pdf
 
                 self.fitted_param[distribution] = param[:]
                 self.fitted_pdf[distribution] = pdf_fitted
 
-                sq_error = pylab.sum((self.fitted_pdf[distribution] - self.y)**2)
+                sq_error = np.sum((self.fitted_pdf[distribution] - self.y) ** 2)
                 if self.verbose:
                     print("Fitted {} distribution with error={})".format(distribution, sq_error))
 
@@ -236,15 +240,16 @@ class Fitter(object):
                 self._fitted_errors[distribution] = sq_error
             except Exception as err:
                 if self.verbose:
-                    print("SKIPPED {} distribution (taking more than {} seconds)".format(distribution, 
-                        self.timeout))
+                    print("SKIPPED {} distribution (taking more than {} seconds)".format(distribution,
+                                                                                         self.timeout))
                 # if we cannot compute the error, set it to large values
                 # FIXME use inf
                 self._fitted_errors[distribution] = 1e6
 
-        self.df_errors = pd.DataFrame({'sumsquare_error':self._fitted_errors})
+        self.df_errors = pd.DataFrame({'sumsquare_error': self._fitted_errors})
 
     def plot_pdf(self, names=None, Nbest=5, lw=2):
+        import pylab
         """Plots Probability density functions of the distributions
 
         :param str,list names: names can be a single distribution name, or a list
@@ -253,18 +258,18 @@ class Fitter(object):
 
 
         """
-        assert Nbest>0
+        assert Nbest > 0
         if Nbest > len(self.distributions):
             Nbest = len(self.distributions)
         if isinstance(names, list):
             for name in names:
                 pylab.plot(self.x, self.fitted_pdf[name], lw=lw, label=name)
         elif names:
-            pylab.plot(self.x, self.fitted_pdf[name], lw=lw, label=name)
+            pylab.plot(self.x, self.fitted_pdf[names], lw=lw, label=names)
         else:
             try:
                 names = self.df_errors.sort_values(
-                        by="sumsquare_error").index[0:Nbest]
+                    by="sumsquare_error").index[0:Nbest]
             except:
                 names = self.df_errors.sort("sumsquare_error").index[0:Nbest]
 
@@ -288,6 +293,7 @@ class Fitter(object):
         return {name: params}
 
     def summary(self, Nbest=5, lw=2):
+        import pylab
         """Plots the distribution of the data and Nbest distribution
 
         """
@@ -299,18 +305,19 @@ class Fitter(object):
         Nbest = min(Nbest, len(self.distributions))
         try:
             names = self.df_errors.sort_values(
-                    by="sumsquare_error").index[0:Nbest]
+                by="sumsquare_error").index[0:Nbest]
         except:
             names = self.df_errors.sort("sumsquare_error").index[0:Nbest]
         return self.df_errors.ix[names]
 
-    def _timed_run(self, func, distribution, args=(), kwargs={},  default=None):
+    def _timed_run(self, func, distribution, args=(), kwargs={}, default=None):
         """This function will spawn a thread and run the given function
         using the args, kwargs and return the given default value if the
         timeout is exceeded.
 
         http://stackoverflow.com/questions/492519/timeout-on-a-python-function-call
         """
+
         class InterruptableThread(threading.Thread):
             def __init__(self):
                 threading.Thread.__init__(self)
@@ -334,15 +341,14 @@ class Fitter(object):
         diff = ended_at - started_at
 
         if it.exc_info[0] is not None:  # if there were any exceptions
-            a,b,c = it.exc_info
-            raise Exception(a,b,c)  # communicate that to caller
+            a, b, c = it.exc_info
+            raise Exception(a, b, c)  # communicate that to caller
 
         if it.isAlive():
             it.suicide()
             raise RuntimeError
         else:
             return it.result
-
 
 
 """ For book-keeping
